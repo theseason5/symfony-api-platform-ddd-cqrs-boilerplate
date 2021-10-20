@@ -1,0 +1,77 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices/configuration.html#application-related-configuration
+parameters:
+
+services:
+  # default configuration for services in *this* file
+  _defaults:
+    autowire: true      # Automatically injects dependencies in your services.
+    autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+  _instanceof:
+    Acme\Infrastructure\Shared\Bus\Command\CommandHandlerInterface:
+      public: true
+      tags:
+        - { name: messenger.message_handler, bus: messenger.bus.command }
+
+    Acme\Infrastructure\Shared\Bus\Query\QueryHandlerInterface:
+      public: true
+      tags:
+        - { name: messenger.message_handler, bus: messenger.bus.query }
+
+    Acme\Infrastructure\Shared\Bus\Event\EventHandlerInterface:
+      public: true
+      tags:
+        - { name: messenger.message_handler, bus: messenger.bus.event.async }
+
+  # makes classes in src/ available to be used as services
+  # this creates a service per class whose id is the fully-qualified class name
+  Acme\:
+    resource: '../src/*'
+    exclude:
+      - '../src/Domain/*/Exception/*'
+      - '../src/Infrastructure/Kernel.php'
+      - '../src/Infrastructure/Shared/Migrations'
+
+  # Swagger decorators
+  Acme\Infrastructure\Bridge\ApiPlatform\Swagger\AuthSwaggerDecorator:
+    decorates: 'api_platform.swagger.normalizer.documentation'
+    autoconfigure: false
+
+  Acme\Infrastructure\Bridge\ApiPlatform\Serializer\SerializerContextBuilder:
+    decorates: api_platform.serializer.context_builder
+
+  Acme\Infrastructure\Bridge\Doctrine\Event\DomainEventCollector:
+    tags:
+      - { name: 'doctrine.event_subscriber' }
+
+  # controllers are imported separately to make sure services can be injected
+  # as action arguments even if you don't extend any base controller class
+  Acme\UI\Http\Rest\Controller\:
+    resource: '../src/UI/Http/Rest/Controller/*'
+    tags: [ 'controller.service_arguments' ]
+
+  Acme\UI\Http\Web\Controller\:
+    resource: '../src/UI/Http/Web/Controller/*'
+    tags: [ 'controller.service_arguments' ]
+
+  Acme\Application\UseCase\Query\CollectionQueryFactory:
+    arguments:
+      $collectionOptions: '%api_platform.collection.pagination%'
+
+  acme.user_resource.search_filter:
+    parent: 'api_platform.doctrine.orm.search_filter'
+    arguments: [ { credentials.email: "partial" } ]
+    tags: [ { name: 'api_platform.filter', id: 'user.search_filter' } ]
+    # The following are mandatory only if a _defaults section is defined
+    # You may want to isolate filters in a dedicated file to avoid adding them
+    autowire: false
+    autoconfigure: false
+
+  Acme\Application\UseCase\Query\User\GetUsers\GetUsersQueryHandler:
+    arguments: ['api_platform.doctrine.orm.default.collection_data_provider']
+  # add more service definitions when explicit configuration is needed
+  # please note that last definitions always *replace* previous ones

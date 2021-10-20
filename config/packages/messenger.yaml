@@ -1,0 +1,22 @@
+framework:
+  messenger:
+    default_bus: messenger.bus.command
+
+    buses:
+      messenger.bus.command:
+        default_middleware: false
+        middleware:
+          - handle_message
+
+      messenger.bus.query:
+        default_middleware: false
+        middleware:
+          - handle_message
+
+      messenger.bus.event.async: ~
+
+    transports:
+      domain_events: "%env(MESSENGER_TRANSPORT_DSN)%"
+
+    routing:
+      Acme\Domain\Shared\Event\DomainEventInterface: domain_events
